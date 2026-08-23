@@ -63,6 +63,8 @@ func (s *AlertStore) CreateRule(rule AlertRule) (AlertRule, error) {
 }
 
 func (s *AlertStore) ListRules() []AlertRule {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
 	out := make([]AlertRule, 0, len(s.rules))
 	for _, rule := range s.rules {
 		out = append(out, *rule)
@@ -78,7 +80,9 @@ func (s *AlertStore) AppendEvent(ev AlertEvent) {
 }
 
 func (s *AlertStore) ListEvents() []AlertEvent {
-	return s.events
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return append([]AlertEvent(nil), s.events...)
 }
 
 func (s *AlertStore) CountEvents() int {
@@ -142,5 +146,5 @@ func (s *AlertService) EvaluateAll() int {
 }
 
 func (s *AlertService) Rules() []AlertRule   { return s.store.ListRules() }
-func (s *AlertService) Events() []AlertEvent { return s.store.events }
-func (s *AlertService) EventCount() int      { return len(s.store.events) }
+func (s *AlertService) Events() []AlertEvent { return s.store.ListEvents() }
+func (s *AlertService) EventCount() int      { return s.store.CountEvents() }

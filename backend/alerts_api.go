@@ -43,5 +43,5 @@ func (a *alertsAPI) handleEvents(w http.ResponseWriter, r *http.Request) {
 		opsJSON(w, http.StatusMethodNotAllowed, map[string]string{"error": "method not allowed"})
 		return
 	}
-	opsJSON(w, http.StatusOK, map[string]any{"events": a.svc.store.events})
+	opsJSON(w, http.StatusOK, map[string]any{"events": a.svc.Events()})
 }
