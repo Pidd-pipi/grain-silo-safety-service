@@ -13,8 +13,6 @@ var alertSequence uint64
 
 func newAlertID() string { return fmt.Sprintf("alert-%06d", atomic.AddUint64(&alertSequence, 1)) }
 
-const recentAlertCap = 5
-
 type AlertRule struct {
 	ID      string  `json:"id"`
 	Metric  string  `json:"metric"`
@@ -95,15 +93,13 @@ func (s *AlertStore) CountEvents() int {
 }
 
 type AlertService struct {
-	store    *AlertStore
-	silos    *store.Store
-	clock    OpsClock
-	recent   []AlertEvent
-	recentMu sync.Mutex
+	store *AlertStore
+	silos *store.Store
+	clock OpsClock
 }
 
 func newAlertService(alertStore *AlertStore, silos *store.Store, clock OpsClock) *AlertService {
-	return &AlertService{store: alertStore, silos: silos, clock: clock, recent: []AlertEvent{}}
+	return &AlertService{store: alertStore, silos: silos, clock: clock}
 }
 
 func (s *AlertService) CreateRule(rule AlertRule) (AlertRule, error) {
@@ -134,7 +130,7 @@ func (s *AlertService) EvaluateAll() int {
 				value = silo.MoisturePct
 			}
 			if value < rule.Min || value > rule.Max {
-				ev := AlertEvent{
+				s.store.AppendEvent(AlertEvent{
 					ID:     newAlertID(),
 					RuleID: rule.ID,
 					SiloID: silo.ID,
@@ -142,30 +138,12 @@ func (s *AlertService) EvaluateAll() int {
 					Value:  value,
 					Level:  rule.Level,
 					At:     s.clock.Stamp(),
-				}
-				s.store.AppendEvent(ev)
-				s.recordRecent(ev)
+				})
 				count++
 			}
 		}
 	}
 	return count
-}
-
-func (s *AlertService) recordRecent(ev AlertEvent) {
-	s.recentMu.Lock()
-	defer s.recentMu.Unlock()
-	s.recent = append(s.recent, ev)
-	if len(s.recent) > recentAlertCap {
-		s.recent = append([]AlertEvent(nil), s.recent[len(s.recent)-recentAlertCap:]...)
-	}
-}
-
-func (s *AlertService) Recent() []AlertEvent {
-	s.recentMu.Lock()
-	defer s.recentMu.Unlock()
-	out := make([]AlertEvent, 0, len(s.recent))
-	return append(out, s.recent...)
 }
 
 func (s *AlertService) Rules() []AlertRule   { return s.store.ListRules() }

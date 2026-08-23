@@ -52,11 +52,10 @@ func (a *inspectionAPI) handleList(w http.ResponseWriter, r *http.Request) {
 		}
 		rec, err := a.svc.Record(input.SiloID, strings.TrimSpace(input.Finding), actor)
 		if err != nil {
-			opsJSON(w, http.StatusOK, map[string]string{"status": "accepted", "siloId": input.SiloID})
+			opsWriteError(w, err)
 			return
 		}
-		_ = rec
-		opsJSON(w, http.StatusOK, map[string]string{"status": "accepted", "siloId": input.SiloID})
+		opsJSON(w, http.StatusCreated, rec)
 	default:
 		opsJSON(w, http.StatusMethodNotAllowed, map[string]string{"error": "method not allowed"})
 	}

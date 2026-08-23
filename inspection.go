@@ -168,13 +168,14 @@ func (s *InspectionService) Record(siloID, finding, actor string) (*InspectionRe
 	if !s.acquireToken() {
 		return nil, ErrInspectionBusy
 	}
-	silo, err := s.silos.Get(siloID)
-	if err != nil {
-		return nil, err
-	}
 	defer s.releaseToken()
 	if !s.beginSilo(siloID) {
 		return nil, ErrInspectionInFlight
+	}
+	defer s.endSilo(siloID)
+	silo, err := s.silos.Get(siloID)
+	if err != nil {
+		return nil, err
 	}
 	if silo.SafetyState == "clear" {
 		return nil, domain.ErrSiloRejected
@@ -182,7 +183,6 @@ func (s *InspectionService) Record(siloID, finding, actor string) (*InspectionRe
 	if finding == "" {
 		return nil, domain.ErrFindingEmpty
 	}
-	defer s.endSilo(siloID)
 
 	rec := &InspectionRecord{
 		ID:        newInspectionID(),
@@ -232,7 +232,7 @@ func (s *InspectionService) beginSilo(siloID string) bool {
 func (s *InspectionService) endSilo(siloID string) {
 	s.inFlightMu.Lock()
 	defer s.inFlightMu.Unlock()
-	delete(s.inFlight, "")
+	delete(s.inFlight, siloID)
 }
 
 func (s *InspectionService) Review(id, actor string) (*InspectionRecord, error) {

@@ -2,6 +2,7 @@ package main
 
 import (
 	"errors"
+	"example.com/grain-silo-safety-service/domain"
 	"fmt"
 )
 
@@ -31,15 +32,15 @@ func wrapOps(code, operation string, cause error) error {
 }
 func opsCode(err error) string {
 	switch {
-	case errors.Is(err, ErrOpsNotFound):
+	case errors.Is(err, ErrOpsNotFound), errors.Is(err, domain.ErrSiloNotFound):
 		return "not_found"
-	case errors.Is(err, ErrOpsConflict):
+	case errors.Is(err, ErrOpsConflict), errors.Is(err, ErrInspectionInFlight), errors.Is(err, ErrInspectionState), errors.Is(err, domain.ErrSiloRejected):
 		return "conflict"
-	case errors.Is(err, ErrOpsInvalid):
+	case errors.Is(err, ErrOpsInvalid), errors.Is(err, domain.ErrFindingEmpty):
 		return "invalid"
 	case errors.Is(err, ErrOpsTransition):
 		return "transition"
-	case errors.Is(err, ErrOpsPolicy):
+	case errors.Is(err, ErrOpsPolicy), errors.Is(err, ErrInspectionBusy):
 		return "policy"
 	default:
 		var typed *OpsError
