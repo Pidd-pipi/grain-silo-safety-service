@@ -20,6 +20,9 @@ func newOpsStore(seed []OpsRecord) *OpsStore {
 	return s
 }
 func (s *OpsStore) Get(ctx context.Context, id string) (OpsRecord, error) {
+	if err := ctx.Err(); err != nil {
+		return OpsRecord{}, err
+	}
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	item, ok := s.items[id]
@@ -29,6 +32,9 @@ func (s *OpsStore) Get(ctx context.Context, id string) (OpsRecord, error) {
 	return item.Clone(), nil
 }
 func (s *OpsStore) List(ctx context.Context) ([]OpsRecord, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	out := make([]OpsRecord, 0, len(s.items))
@@ -39,6 +45,11 @@ func (s *OpsStore) List(ctx context.Context) ([]OpsRecord, error) {
 	return out, nil
 }
 func (s *OpsStore) Put(ctx context.Context, item OpsRecord) error {
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	default:
+	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if _, ok := s.items[item.ID]; ok {

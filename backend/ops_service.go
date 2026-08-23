@@ -36,6 +36,8 @@ func (p OpsPolicy) Check(record OpsRecord) error {
 	return nil
 }
 func (s *OpsService) Create(ctx context.Context, record OpsRecord) (OpsRecord, error) {
+	ctx, cancel := opsContext(ctx, opsWriteTimeout)
+	defer cancel()
 	record = normalizeOpsRecord(record)
 	record.Labels["created_by"] = record.Owner
 	if record.Status == "" {
@@ -53,6 +55,8 @@ func (s *OpsService) Create(ctx context.Context, record OpsRecord) (OpsRecord, e
 	return record, nil
 }
 func (s *OpsService) Get(ctx context.Context, id string) (OpsRecord, error) {
+	ctx, cancel := opsContext(ctx, opsReadTimeout)
+	defer cancel()
 	record, err := s.store.Get(ctx, id)
 	if err != nil {
 		return OpsRecord{}, wrapOps("get", "store.get", err)
@@ -60,6 +64,8 @@ func (s *OpsService) Get(ctx context.Context, id string) (OpsRecord, error) {
 	return record, nil
 }
 func (s *OpsService) Search(ctx context.Context, q OpsQuery) (OpsPage, error) {
+	ctx, cancel := opsContext(ctx, opsReadTimeout)
+	defer cancel()
 	items, err := s.store.List(ctx)
 	if err != nil {
 		return OpsPage{}, err
@@ -76,7 +82,7 @@ func (s *OpsService) Search(ctx context.Context, q OpsQuery) (OpsPage, error) {
 	return OpsPage{Items: filtered[start:end], Page: q.Page, PageSize: q.PageSize, Total: len(filtered), HasNext: end < len(filtered)}, nil
 }
 func (s *OpsService) Transition(ctx context.Context, id string, expected int, target OpsStatus, actor string) (OpsRecord, error) {
-	ctx, cancel := opsContext(ctx, 3*time.Second)
+	ctx, cancel := opsContext(ctx, opsWriteTimeout)
 	defer cancel()
 	record, err := s.store.Get(ctx, id)
 	if err != nil {

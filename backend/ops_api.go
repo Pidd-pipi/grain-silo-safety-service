@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"encoding/json"
 	"io"
 	"net/http"
@@ -45,7 +44,7 @@ type opsTransitionInput struct {
 func (a *opsAPI) handleRecords(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodGet:
-		page, err := a.svc.Search(context.Background(), opsQueryFromRequest(r))
+		page, err := a.svc.Search(r.Context(), opsQueryFromRequest(r))
 		if err != nil {
 			opsWriteError(w, err)
 			return
@@ -61,7 +60,7 @@ func (a *opsAPI) handleRecords(w http.ResponseWriter, r *http.Request) {
 		if recordID == "" {
 			recordID = newOpsRecordID()
 		}
-		created, err := a.svc.Create(context.Background(), OpsRecord{ID: recordID, Subject: input.Subject, Owner: input.Owner, Priority: input.Priority, Labels: input.Labels})
+		created, err := a.svc.Create(r.Context(), OpsRecord{ID: recordID, Subject: input.Subject, Owner: input.Owner, Priority: input.Priority, Labels: input.Labels})
 		if err != nil {
 			opsWriteError(w, err)
 			return
@@ -102,7 +101,7 @@ func (a *opsAPI) handleRecord(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	id := opsPathID(r.URL.Path, "/api/ops/records")
-	record, err := a.svc.Get(context.Background(), id)
+	record, err := a.svc.Get(r.Context(), id)
 	if err != nil {
 		opsWriteError(w, err)
 		return
