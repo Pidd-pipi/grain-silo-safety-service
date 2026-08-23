@@ -17,11 +17,13 @@ type OpsAudit struct {
 	byType map[string]int
 }
 
-func newOpsAudit() *OpsAudit { return &OpsAudit{events: []OpsEvent{}} }
+func newOpsAudit() *OpsAudit {
+	return &OpsAudit{events: []OpsEvent{}, byType: map[string]int{}}
+}
 func (a *OpsAudit) Add(recordID, typ, actor string) OpsEvent {
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	event := OpsEvent{ID: newOpsAuditID(), RecordID: recordID, Type: typ, Actor: actor, At: time.Now().UTC().Format(time.RFC3339Nano)}
+	event := OpsEvent{ID: newOpsAuditID(), RecordID: recordID, Type: typ, Actor: actor, At: time.Now().UTC().Format(time.RFC3339Nano), Details: map[string]string{}}
 	event.Details["by"] = actor
 	a.byType[typ]++
 	a.events = append(a.events, event)
