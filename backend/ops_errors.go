@@ -25,8 +25,9 @@ func (e *OpsError) Error() string {
 	}
 	return fmt.Sprintf("%s: %s: %v", e.Code, e.Operation, e.Cause)
 }
+func (e *OpsError) Unwrap() error { return e.Cause }
 func wrapOps(code, operation string, cause error) error {
-	return &OpsError{Code: code, Operation: operation}
+	return &OpsError{Code: code, Operation: operation, Cause: cause}
 }
 func opsCode(err error) string {
 	switch {

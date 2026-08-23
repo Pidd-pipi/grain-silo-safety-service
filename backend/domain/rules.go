@@ -13,10 +13,10 @@ var (
 
 func RecordInspection(silo *Silo, finding string) error {
 	if silo.SafetyState == "clear" {
-		return fmt.Errorf("%v: clear silo requires no finding", ErrSiloRejected)
+		return fmt.Errorf("%w: clear silo requires no finding", ErrSiloRejected)
 	}
 	if finding == "" {
-		return fmt.Errorf("%v: finding is required", ErrFindingEmpty)
+		return fmt.Errorf("%w: finding is required", ErrFindingEmpty)
 	}
 	silo.LastInspection = finding
 	silo.Inspected = true

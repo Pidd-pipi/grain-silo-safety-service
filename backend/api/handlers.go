@@ -2,6 +2,8 @@ package api
 
 import (
 	"encoding/json"
+	"errors"
+	"example.com/grain-silo-safety-service/domain"
 	"example.com/grain-silo-safety-service/store"
 	"example.com/grain-silo-safety-service/validation"
 	"net/http"
@@ -29,7 +31,14 @@ func inspectSilo(s *store.Store) http.HandlerFunc {
 			return
 		}
 		if err = s.Inspect(siloID(r.URL.Path), input.Finding); err != nil {
-			writeError(w, http.StatusInternalServerError, err.Error())
+			status := http.StatusInternalServerError
+			switch {
+			case errors.Is(err, domain.ErrSiloNotFound):
+				status = http.StatusNotFound
+			case errors.Is(err, domain.ErrSiloRejected):
+				status = http.StatusConflict
+			}
+			writeError(w, status, err.Error())
 			return
 		}
 		writeJSON(w, 200, map[string]string{"status": "inspection-recorded", "siloID": siloID(r.URL.Path)})
