@@ -15,11 +15,16 @@ import (
 
 var requestSequence uint64
 
-func serveAddress(address string, handler http.Handler) error {
-	return serveHTTP(newEnterpriseServer(address, handler))
+// serveAddress starts the HTTP server and blocks until it is shut down.
+// onShutdown (if non-nil) is invoked after a termination signal is received
+// and before server.Shutdown, so background workers bound to it stop cleanly
+// before the listener is torn down. A start-up error still aborts the process
+// via the caller's log.Fatal — there is nothing graceful to wait for there.
+func serveAddress(address string, handler http.Handler, onShutdown func()) error {
+	return serveHTTP(newEnterpriseServer(address, handler), onShutdown)
 }
 
-func serveHTTP(server *http.Server) error {
+func serveHTTP(server *http.Server, onShutdown func()) error {
 	errCh := make(chan error, 1)
 	go func() {
 		errCh <- server.ListenAndServe()
@@ -36,6 +41,24 @@ func serveHTTP(server *http.Server) error {
 		}
 		return err
 	case <-signals:
+		// Stop background workers first so they cannot outlive the process.
+		// This must happen before server.Shutdown returns and main unwinds,
+		// otherwise the sweeper goroutine leaks and keeps allocating.
+		if onShutdown != nil {
+			done := make(chan struct{})
+			go func() {
+				defer close(done)
+				onShutdown()
+			}()
+			shutdownContext, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancel()
+			select {
+			case <-done:
+			case <-shutdownContext.Done():
+				// worker did not stop within the shutdown budget; proceed
+				// anyway so the process can still exit.
+			}
+		}
 		shutdownContext, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
 		return server.Shutdown(shutdownContext)

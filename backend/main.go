@@ -33,13 +33,25 @@ func main() {
 	handler := api.NewRouter(silos, webFS, newOpsAPI(opsSvc), newInspectionAPI(inspectionSvc), newAlertsAPI(alertSvc))
 	port := config.Port()
 	log.Printf("grain silo service listening on :%d", port)
-	log.Fatal(serveAddress(":"+strconv.Itoa(port), handler))
+	if err := serveAddress(":"+strconv.Itoa(port), handler, stopSweeper); err != nil {
+		// Start-up failure (e.g. port in use) — there is nothing graceful to
+		// wait for, so abort. The normal shutdown path returns nil here and
+		// falls through to the deferred stopSweeper instead.
+		log.Fatal(err)
+	}
+	// Graceful shutdown completed; the deferred stopSweeper is the last call
+	// to run so the background sweep goroutine is guaranteed to have exited
+	// before main returns.
 }
 
 // startSweeper launches the alert evaluation worker bound to a cancellable
-// context; the returned stop func must be called during shutdown so the
-// worker goroutine does not outlive the process.
+// context; the returned stop func stops the worker and blocks until it has
+// exited, so the goroutine does not outlive the process.
 func startSweeper(sweeper *alertSweeper) func() {
-	go sweeper.Run(context.Background())
-	return func() {}
+	ctx, cancel := context.WithCancel(context.Background())
+	go sweeper.Run(ctx)
+	return func() {
+		cancel()
+		sweeper.Stop()
+	}
 }
