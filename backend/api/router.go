@@ -30,9 +30,10 @@ func NewRouter(s *store.Store, webFS fs.FS, registrars ...Registrar) http.Handle
 		}
 		data, err := fs.ReadFile(webFS, path.Clean(strings.TrimPrefix(asset, "/")))
 		if err != nil {
-			data, _ = fs.ReadFile(webFS, "index.html")
-			w.Header().Set("Content-Type", "text/html; charset=utf-8")
-			_, _ = w.Write(data)
+			// Only "/" maps to the index document. Any other missing asset is a
+			// genuine 404 — serving the index here would silently turn "not
+			// found" into a 200 home page.
+			http.NotFound(w, r)
 			return
 		}
 		if strings.HasSuffix(asset, ".js") {
